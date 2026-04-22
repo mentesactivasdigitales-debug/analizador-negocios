@@ -5,7 +5,7 @@ import plotly.express as px
 
 st.set_page_config(page_title="Intelligence Business Pro", layout="wide")
 
-st.title("🚀 Consultor de Inteligencia de Mercado V5.8")
+st.title("🚀 Consultor de Inteligencia de Mercado V5.9")
 st.markdown("### Auditoría de Precisión Real - Maldonado")
 
 # --- CARGA DE DATOS ---
