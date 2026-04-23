@@ -76,30 +76,49 @@ if archivo_client:
     else:
         df_visual = df_cliente
 
-    # --- GRÁFICO SINCRONIZADO CORREGIDO ---
-    st.subheader(f"📊 Análisis de Salud: {st.session_state.filtro_actual}")
+    # --- GRÁFICO DE CONTRASTE ESTADÍSTICO ---
+    st.subheader(f"📊 Contexto de Auditoría: {st.session_state.filtro_actual}")
     
-    val_neg = len(df_visual[df_visual['Resultado_Auditoria'] == -1])
-    val_pos = len(df_visual[df_visual['Resultado_Auditoria'] == 0])
+    # El gráfico SIEMPRE muestra el total para dar contraste, pero resalta lo seleccionado
+    val_neg_total = len(quejas_reales)
+    val_pos_total = len(satisfaccion)
     
     fig_data = pd.DataFrame({
         "Resultado": ["Satisfacción", "Fallas"],
-        "Cantidad": [val_pos, val_neg]
+        "Cantidad": [val_pos_total, val_neg_total]
     })
     
-    # MAPEO EXPLÍCITO: Forzamos el color por nombre de categoría
+    # Lógica de opacidad para enfoque visual profesional
+    op_pos = 1.0 if st.session_state.filtro_actual in ["TODOS", "POSITIVO"] else 0.15
+    op_neg = 1.0 if st.session_state.filtro_actual in ["TODOS", "NEGATIVO"] else 0.15
+
     fig = px.pie(
         fig_data, 
         values='Cantidad', 
         names='Resultado',
         color='Resultado', 
         color_discrete_map={"Satisfacción": "#2ecc71", "Fallas": "#e74c3c"},
-        hole=0.4
+        hole=0.5
     )
-    st.plotly_chart(fig, width='stretch')
+    
+    # Aplicamos contraste mediante actualización de trazos
+    fig.update_traces(
+        marker=dict(opacity=[op_pos, op_neg], line=dict(color='#FFFFFF', width=2)),
+        textinfo='percent+label',
+        hoverinfo='label+value'
+    )
+
+    # KPI Central con el volumen total de datos
+    fig.add_annotation(
+        text=f"Total<br>{len(df_cliente)}",
+        showarrow=False,
+        font=dict(size=20, color="white")
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
     # --- EVIDENCIA ---
-    st.markdown(f"**Detalle de Registros:**")
+    st.markdown(f"**Detalle de Registros Filtrados:**")
     if not df_visual.empty:
         st.dataframe(df_visual[[col_resena]], width='stretch')
     else:
