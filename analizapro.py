@@ -35,12 +35,12 @@ if archivo_client:
     idx_def = columnas.index("Reseña") if "Reseña" in columnas else 0
     col_resena = st.selectbox("Columna analizada:", columnas, index=idx_def)
 
-    # PROCESAMIENTO (Base de datos maestra)
+    # PROCESAMIENTO
     df_cliente['Resultado_Auditoria'] = df_cliente[col_resena].apply(auditoria_estricta)
     quejas_reales = df_cliente[df_cliente['Resultado_Auditoria'] == -1].copy()
     satisfaccion = df_cliente[df_cliente['Resultado_Auditoria'] == 0].copy()
 
-    # --- MÉTRICAS DE NEGOCIO (Estáticas: Representan el total del activo) ---
+    # --- MÉTRICAS DE NEGOCIO ---
     ticket = st.number_input("Ticket Promedio ($U)", value=800)
     n_quejas = len(quejas_reales)
     impacto_anual = (n_quejas * ticket) * 12
@@ -69,7 +69,6 @@ if archivo_client:
     if col_f3.button("📋 Ver Todo el Archivo", use_container_width=True):
         st.session_state.filtro_actual = "TODOS"
 
-    # ASIGNACIÓN DE DATOS SEGÚN FILTRO
     if st.session_state.filtro_actual == "NEGATIVO":
         df_visual = quejas_reales
     elif st.session_state.filtro_actual == "POSITIVO":
@@ -77,10 +76,9 @@ if archivo_client:
     else:
         df_visual = df_cliente
 
-    # --- GRÁFICO SINCRONIZADO ---
+    # --- GRÁFICO SINCRONIZADO CORREGIDO ---
     st.subheader(f"📊 Análisis de Salud: {st.session_state.filtro_actual}")
     
-    # Contamos los resultados basándonos EXCLUSIVAMENTE en el DataFrame filtrado
     val_neg = len(df_visual[df_visual['Resultado_Auditoria'] == -1])
     val_pos = len(df_visual[df_visual['Resultado_Auditoria'] == 0])
     
@@ -89,9 +87,15 @@ if archivo_client:
         "Cantidad": [val_pos, val_neg]
     })
     
-    # El gráfico ahora se redibuja con los valores del filtro seleccionado
-    fig = px.pie(fig_data, values='Cantidad', names='Resultado', 
-                 color_discrete_sequence=['#2ecc71', '#e74c3c'], hole=0.4)
+    # MAPEO EXPLÍCITO: Forzamos el color por nombre de categoría
+    fig = px.pie(
+        fig_data, 
+        values='Cantidad', 
+        names='Resultado',
+        color='Resultado', 
+        color_discrete_map={"Satisfacción": "#2ecc71", "Fallas": "#e74c3c"},
+        hole=0.4
+    )
     st.plotly_chart(fig, width='stretch')
 
     # --- EVIDENCIA ---
