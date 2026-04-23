@@ -35,42 +35,33 @@ if archivo_client:
     idx_def = columnas.index("Reseña") if "Reseña" in columnas else 0
     col_resena = st.selectbox("Columna analizada:", columnas, index=idx_def)
 
-    # PROCESAMIENTO
+    # PROCESAMIENTO (Base de datos maestra)
     df_cliente['Resultado_Auditoria'] = df_cliente[col_resena].apply(auditoria_estricta)
     quejas_reales = df_cliente[df_cliente['Resultado_Auditoria'] == -1].copy()
     satisfaccion = df_cliente[df_cliente['Resultado_Auditoria'] == 0].copy()
 
-    # --- MÉTRICAS DE NEGOCIO ---
+    # --- MÉTRICAS DE NEGOCIO (Estáticas: Representan el total del activo) ---
     ticket = st.number_input("Ticket Promedio ($U)", value=800)
     n_quejas = len(quejas_reales)
-    impacto_directo = n_quejas * ticket
-    impacto_anual = impacto_directo * 12
+    impacto_anual = (n_quejas * ticket) * 12
 
     st.subheader(f"💰 Datos Cliente: {nombre_empresa}")
-    st.markdown("#### Auditoría de Capital (Filtro de Quejas Reales)")
-
+    
     c1, c2, c3 = st.columns(3)
     c1.metric("Quejas Operativas", f"{n_quejas}")
-
+    
     porcentaje_falla = (n_quejas / len(df_cliente)) * 100 if len(df_cliente) > 0 else 0
-    if porcentaje_falla > 15:
-        estado, color = "CRÍTICO", "red"
-    elif porcentaje_falla > 5:
-        estado, color = "RIESGO", "orange"
-    else:
-        estado, color = "SALUDABLE", "green"
-
+    estado, color = ("CRÍTICO", "red") if porcentaje_falla > 15 else (("RIESGO", "orange") if porcentaje_falla > 5 else ("SALUDABLE", "green"))
+    
     c2.markdown(f"<h3 style='color:{color}; text-align:center;'>ESTADO: {estado}</h3>", unsafe_allow_html=True)
     c3.metric("Impacto Anual Proyectado", f"${impacto_anual:,.0f}")
 
-    # --- NUEVA FUNCIÓN: BOTONES DE FILTRADO Y GRÁFICO DINÁMICO ---
+    # --- SISTEMA DE FILTRADO DINÁMICO ---
     st.subheader("🎯 Explorador de Auditoría")
-    
     if 'filtro_actual' not in st.session_state:
         st.session_state.filtro_actual = "TODOS"
 
     col_f1, col_f2, col_f3 = st.columns(3)
-    
     if col_f1.button("✅ Ver Positivos / Neutros", use_container_width=True):
         st.session_state.filtro_actual = "POSITIVO"
     if col_f2.button("❌ Ver Fallas Reales", use_container_width=True):
@@ -78,36 +69,37 @@ if archivo_client:
     if col_f3.button("📋 Ver Todo el Archivo", use_container_width=True):
         st.session_state.filtro_actual = "TODOS"
 
-    # Determinamos qué datos mostrar según el filtro
+    # ASIGNACIÓN DE DATOS SEGÚN FILTRO
     if st.session_state.filtro_actual == "NEGATIVO":
-        df_mostrar = quejas_reales
+        df_visual = quejas_reales
     elif st.session_state.filtro_actual == "POSITIVO":
-        df_mostrar = satisfaccion
+        df_visual = satisfaccion
     else:
-        df_mostrar = df_cliente
+        df_visual = df_cliente
 
-    # --- GRÁFICOS DINÁMICOS (Ahora se actualizan con los botones) ---
-    st.subheader(f"📊 Visualización de Salud: {st.session_state.filtro_actual}")
+    # --- GRÁFICO SINCRONIZADO ---
+    st.subheader(f"📊 Análisis de Salud: {st.session_state.filtro_actual}")
     
-    # Calculamos la proporción basada SOLAMENTE en lo que está filtrado
-    cant_neg = len(df_mostrar[df_mostrar['Resultado_Auditoria'] == -1])
-    cant_pos = len(df_mostrar[df_mostrar['Resultado_Auditoria'] == 0])
+    # Contamos los resultados basándonos EXCLUSIVAMENTE en el DataFrame filtrado
+    val_neg = len(df_visual[df_visual['Resultado_Auditoria'] == -1])
+    val_pos = len(df_visual[df_visual['Resultado_Auditoria'] == 0])
     
     fig_data = pd.DataFrame({
-        "Resultado": ["Satisfacción/Neutro", "Fallas Reales"],
-        "Cantidad": [cant_pos, cant_neg]
+        "Resultado": ["Satisfacción", "Fallas"],
+        "Cantidad": [val_pos, val_neg]
     })
     
+    # El gráfico ahora se redibuja con los valores del filtro seleccionado
     fig = px.pie(fig_data, values='Cantidad', names='Resultado', 
                  color_discrete_sequence=['#2ecc71', '#e74c3c'], hole=0.4)
     st.plotly_chart(fig, width='stretch')
 
     # --- EVIDENCIA ---
     st.markdown(f"**Detalle de Registros:**")
-    if not df_mostrar.empty:
-        st.dataframe(df_mostrar[[col_resena]], width='stretch')
+    if not df_visual.empty:
+        st.dataframe(df_visual[[col_resena]], width='stretch')
     else:
-        st.info(f"No hay registros para la vista: {st.session_state.filtro_actual}")
+        st.info(f"No hay registros en la categoría: {st.session_state.filtro_actual}")
 
 else:
     st.info("Cargue los archivos para iniciar la auditoría profesional.")
