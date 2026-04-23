@@ -16,22 +16,13 @@ archivos_comp = st.sidebar.file_uploader("Benchmarks COMPETENCIA", type=["xlsx",
 
 def auditoria_estricta(texto):
     if not isinstance(texto, str) or str(texto).strip() == "": return 0
-    
     texto_limpio = str(texto).lower()
-
-    # 1. LISTA DE SALVACIÓN
-    palabras_positivas = ['rico', 'excelente', 'recomiendo', 'abundante', 'impecable', 'bueno','bien']
-
+    palabras_positivas = ['rico', 'excelente','recomiendo', 'abundante','impecable', 'bueno','bien']
     if any(p in texto_limpio for p in palabras_positivas) and "no" not in texto_limpio.split(palabras_positivas[0])[0]:
         return 0
-
-    # 2. Análisis de Sentimiento
     sentimiento = TextBlob(str(texto)).sentiment.polarity
-
-    # 3. Diccionario de Fallas Reales
-    palabras_queja = ['mala', 'fria','fría', 'tarda','demora', 'caro','pelo', 'quemada','cruda', 'sucio','cucaracha']
+    palabras_queja = ['mala', 'fria','fría','tarda','demora','caro','pelo','quemada','cruda','sucio','cucaracha']
     tiene_queja_palabra = any(p in texto_limpio for p in palabras_queja)
-
     if tiene_queja_palabra and sentimiento < 0.1:
         return -1 
     return 0
@@ -62,7 +53,6 @@ if archivo_client:
     c1.metric("Quejas Operativas", f"{n_quejas}")
 
     porcentaje_falla = (n_quejas / len(df_cliente)) * 100 if len(df_cliente) > 0 else 0
-
     if porcentaje_falla > 15:
         estado, color = "CRÍTICO", "red"
     elif porcentaje_falla > 5:
@@ -73,19 +63,9 @@ if archivo_client:
     c2.markdown(f"<h3 style='color:{color}; text-align:center;'>ESTADO: {estado}</h3>", unsafe_allow_html=True)
     c3.metric("Impacto Anual Proyectado", f"${impacto_anual:,.0f}")
 
-    # --- GRÁFICOS ---
-    st.subheader("📊 Visualización de Salud del Negocio")
-    fig_data = pd.DataFrame({
-        "Resultado": ["Satisfacción/Neutro", "Fallas Reales"],
-        "Cantidad": [len(df_cliente) - n_quejas, n_quejas]
-    })
-    fig = px.pie(fig_data, values='Cantidad', names='Resultado', color_discrete_sequence=['#2ecc71', '#e74c3c'], hole=0.4)
-    st.plotly_chart(fig, width='stretch')
-
-    # --- NUEVA FUNCIÓN: BOTONES DE FILTRADO PROFESIONAL ---
+    # --- NUEVA FUNCIÓN: BOTONES DE FILTRADO Y GRÁFICO DINÁMICO ---
     st.subheader("🎯 Explorador de Auditoría")
     
-    # Inicialización del estado de filtro si no existe
     if 'filtro_actual' not in st.session_state:
         st.session_state.filtro_actual = "TODOS"
 
@@ -98,23 +78,36 @@ if archivo_client:
     if col_f3.button("📋 Ver Todo el Archivo", use_container_width=True):
         st.session_state.filtro_actual = "TODOS"
 
-    # --- EVIDENCIA BASADA EN FILTRO ---
-    st.markdown(f"**Vista seleccionada:** {st.session_state.filtro_actual}")
-    
+    # Determinamos qué datos mostrar según el filtro
     if st.session_state.filtro_actual == "NEGATIVO":
-        if not quejas_reales.empty:
-            st.dataframe(quejas_reales[[col_resena]], width='stretch')
-        else:
-            st.success("No se encontraron fallas críticas.")
-            
+        df_mostrar = quejas_reales
     elif st.session_state.filtro_actual == "POSITIVO":
-        if not satisfaccion.empty:
-            st.dataframe(satisfaccion[[col_resena]], width='stretch')
-        else:
-            st.info("No hay registros positivos en esta auditoría.")
-            
+        df_mostrar = satisfaccion
     else:
-        st.dataframe(df_cliente[[col_resena, 'Resultado_Auditoria']], width='stretch')
+        df_mostrar = df_cliente
+
+    # --- GRÁFICOS DINÁMICOS (Ahora se actualizan con los botones) ---
+    st.subheader(f"📊 Visualización de Salud: {st.session_state.filtro_actual}")
+    
+    # Calculamos la proporción basada SOLAMENTE en lo que está filtrado
+    cant_neg = len(df_mostrar[df_mostrar['Resultado_Auditoria'] == -1])
+    cant_pos = len(df_mostrar[df_mostrar['Resultado_Auditoria'] == 0])
+    
+    fig_data = pd.DataFrame({
+        "Resultado": ["Satisfacción/Neutro", "Fallas Reales"],
+        "Cantidad": [cant_pos, cant_neg]
+    })
+    
+    fig = px.pie(fig_data, values='Cantidad', names='Resultado', 
+                 color_discrete_sequence=['#2ecc71', '#e74c3c'], hole=0.4)
+    st.plotly_chart(fig, width='stretch')
+
+    # --- EVIDENCIA ---
+    st.markdown(f"**Detalle de Registros:**")
+    if not df_mostrar.empty:
+        st.dataframe(df_mostrar[[col_resena]], width='stretch')
+    else:
+        st.info(f"No hay registros para la vista: {st.session_state.filtro_actual}")
 
 else:
     st.info("Cargue los archivos para iniciar la auditoría profesional.")
